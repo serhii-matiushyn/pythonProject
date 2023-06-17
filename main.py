@@ -1,10 +1,22 @@
 import logging
 import csv
-
+import sqlite3
 from telegram import Update, ReplyKeyboardMarkup, __version__ as TG_VER
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
-# Define questions and options
+# Database setup
+conn = sqlite3.connect('subscribers.db')
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS subscribers (telegram_id text)''')
+
+def save_subscriber(telegram_id):
+    c.execute("SELECT telegram_id FROM subscribers WHERE telegram_id = ?", (telegram_id,))
+    if c.fetchone() is None:
+        c.execute("INSERT INTO subscribers VALUES (?)", (telegram_id,))
+        conn.commit()
+
+
+
 QUESTIONS_TEXT = [
      "Як Ви оцінюєте свою підготовку до виконання практичних завдань в лікарні?",
     "Якими Ви оцінюєте свої знання з організації роботи в лікарнях?",
@@ -77,18 +89,23 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         return -1
 
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    save_subscriber(user.id)
+    # ... (rest of your existing code) ...
+
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user.id != 358654127:
+        return
+    message = ' '.join(context.args)
+    for row in c.execute('SELECT telegram_id FROM subscribers'):
+        context.bot.send_message(chat_id=row[0], text=message)
+
 def main() -> None:
-    """Start the bot."""
-    # Create the Application and pass it your bot's token.
     application = Application.builder().token("6232551131:AAG2-8nMYPJgB_ihvwRHpALG8NIhAk4NiSw").build()
-
-    # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
-
-    # on non command i.e message - echo the message on Telegram
+    application.add_handler(CommandHandler("broadcast", broadcast))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, next_question))
-
-    # Run the bot until the user presses Ctrl-C
     application.run_polling()
 
 if __name__ == '__main__':
