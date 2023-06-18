@@ -8,13 +8,15 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 # Database setup
 conn = sqlite3.connect('subscribers.db')
 c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS subscribers (telegram_id text)''')
+c.execute('''CREATE TABLE IF NOT EXISTS subscribers (telegram_id text, subscribed text)''')
 
 def save_subscriber(telegram_id):
     c.execute("SELECT telegram_id FROM subscribers WHERE telegram_id = ?", (telegram_id,))
     if c.fetchone() is None:
-        c.execute("INSERT INTO subscribers VALUES (?)", (telegram_id,))
-        conn.commit()
+        c.execute("INSERT INTO subscribers VALUES (?, 'subscribed')", (telegram_id,))
+    else:
+        c.execute("UPDATE subscribers SET subscribed = 'subscribed' WHERE telegram_id = ?", (telegram_id,))
+    conn.commit()
 
 
 
@@ -96,9 +98,15 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     message = ' '.join(context.args)
     for row in c.execute('SELECT telegram_id FROM subscribers'):
-        await context.bot.send_message(chat_id=row[0], text=message)
-        logger.info(f"Sent message to subscriber {row[0]}")
-        await asyncio.sleep(1)  # wait for 1 second
+        try:
+            await context.bot.send_message(chat_id=row[0], text=message)
+            logger.info(f"Sent message to subscriber {row[0]}")
+            await asyncio.sleep(1)  # wait for 1 second
+        except Exception as e:
+            logger.error(f"Failed to send message to subscriber {row[0]}: {e}")
+            c.execute("UPDATE subscribers SET subscribed = 'unsubscribed' WHERE telegram_id = ?", (row[0],))
+            conn.commit()
+
 
 def main() -> None:
     application = Application.builder().token("6232551131:AAG2-8nMYPJgB_ihvwRHpALG8NIhAk4NiSw").build()
