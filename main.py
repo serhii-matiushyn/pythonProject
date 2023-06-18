@@ -1,6 +1,7 @@
 import logging
 import csv
 import sqlite3
+import asyncio
 from telegram import Update, ReplyKeyboardMarkup, __version__ as TG_VER
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -65,8 +66,9 @@ def save_answer(user, question, answer):
         writer.writerow([user, question, answer])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
     user = update.effective_user
+    save_subscriber(user.id)
+    logger.info(f"User {user.id} started the bot")
     keyboard = ReplyKeyboardMarkup([QUESTIONS_OPTIONS[0]], one_time_keyboard=True)
     await update.message.reply_text(
         QUESTIONS_TEXT[0],
@@ -74,12 +76,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     context.user_data['current_question'] = 0
 
+
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Ask the next question and save the answer to the previous question."""
     user = update.effective_user
     answer = update.message.text
     current_question = context.user_data['current_question']
     save_answer(user, QUESTIONS_TEXT[current_question], answer)
+    logger.info(f"User {user.id} answered question {current_question} with {answer}")
     if current_question < len(QUESTIONS_TEXT) - 1:
         keyboard = ReplyKeyboardMarkup([QUESTIONS_OPTIONS[current_question + 1]], one_time_keyboard=True)
         await update.message.reply_text(QUESTIONS_TEXT[current_question + 1], reply_markup=keyboard)
@@ -88,18 +91,14 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         await update.message.reply_text("Thank you for completing the survey!")
         return -1
 
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    save_subscriber(user.id)
-    # ... (rest of your existing code) ...
-
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user.id != 358654127:
         return
     message = ' '.join(context.args)
     for row in c.execute('SELECT telegram_id FROM subscribers'):
-        context.bot.send_message(chat_id=row[0], text=message)
+        await context.bot.send_message(chat_id=row[0], text=message)
+        logger.info(f"Sent message to subscriber {row[0]}")
+        await asyncio.sleep(1)  # wait for 1 second
 
 def main() -> None:
     application = Application.builder().token("6232551131:AAG2-8nMYPJgB_ihvwRHpALG8NIhAk4NiSw").build()
