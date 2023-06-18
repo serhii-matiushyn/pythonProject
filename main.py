@@ -67,11 +67,12 @@ def save_answer(user, question, answer_index):
     current_question = QUESTION_TEXT.index(question)
     # Get the answer text from QUESTION_OPTIONS
     answer_text = QUESTION_OPTIONS[current_question][answer_index]
-    answers.append(answer_text)
+
     with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([user, question, answer_text])
-async def calculate_score():
+    answers.append(answer_text)
+def calculate_score():
     total_questions = 10
     score = 100
     for answer in answers:
