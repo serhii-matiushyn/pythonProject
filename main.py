@@ -122,7 +122,9 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         )
         context.user_data['current_question'] = current_question + 1
     else:
+
         score = await calculate_score(answers)
+        await save_final_result(user, answers, score)
         await query.edit_message_text(text=f"""Результати: Рівень вашої готовності *{score}%*
             Ваш статус:
             90%-100% : Крутий інтерн 😎
@@ -153,7 +155,7 @@ async def calculate_score(answers):
         if answer.lower() == 'ні':
             score -= 10
     return score
-def save_final_result(user, answers, score):
+async def save_final_result(user, answers, score):
     """Save the user's final result to a CSV file."""
     try:
         with open(CSV_FILE, 'x', newline='', encoding='utf-8') as file:
