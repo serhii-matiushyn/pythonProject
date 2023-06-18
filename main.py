@@ -53,7 +53,7 @@ QUESTION_OPTIONS = [
 ]
 
 # Define CSV file name
-CSV_FILE = "survey_results.csv"
+CSV_FILE = 'results.csv'  # Specify the name of your CSV file here
 
 # Enable logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -67,10 +67,6 @@ def save_answer(user, question, answer_index):
     current_question = QUESTION_TEXT.index(question)
     # Get the answer text from QUESTION_OPTIONS
     answer_text = QUESTION_OPTIONS[current_question][answer_index]
-
-    with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        writer.writerow([user, question, answer_text])
     answers.append(answer_text)
 def calculate_score():
     total_questions = 10
@@ -126,8 +122,8 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         )
         context.user_data['current_question'] = current_question + 1
     else:
-        score = await calculate_score()
-        await query.edit_message_text(text=f"""Результати: Рівень вашої готовності {score}%
+        score = await calculate_score(answers)
+        await query.edit_message_text(text=f"""Результати: Рівень вашої готовності *{score}%*
             Ваш статус:
             90%-100% : Крутий інтерн 😎
             70-89% : Перспективний інтерн 😏
@@ -157,6 +153,17 @@ async def calculate_score(answers):
         if answer.lower() == 'ні':
             score -= 10
     return score
+def save_final_result(user, answers, score):
+    """Save the user's final result to a CSV file."""
+    try:
+        with open(CSV_FILE, 'x', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(['User', 'Final Result', 'Answers', 'Score'])
+    except FileExistsError:
+        pass
+    with open(CSV_FILE, 'a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow([user, 'Final Result', answers, score])
 
 def main() -> None:
     application = Application.builder().token("6232551131:AAG2-8nMYPJgB_ihvwRHpALG8NIhAk4NiSw").build()
