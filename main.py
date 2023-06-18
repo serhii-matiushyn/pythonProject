@@ -58,13 +58,7 @@ CSV_FILE = "survey_results.csv"
 # Enable logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
-async def calculate_score():
-    total_questions = 10
-    score = 100
-    for answer in answers:
-        if answer.lower() == 'ні':
-            score -= 10
-    return score
+
 def save_answer(user, question, answer_index):
     """Save the user's answer to a CSV file."""
     # Convert the answer index to an integer
@@ -77,7 +71,13 @@ def save_answer(user, question, answer_index):
     with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([user, question, answer_text])
-
+async def calculate_score():
+    total_questions = 10
+    score = 100
+    for answer in answers:
+        if answer.lower() == 'ні':
+            score -= 10
+    return score
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     save_subscriber(user.id)
