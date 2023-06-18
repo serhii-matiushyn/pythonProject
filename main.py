@@ -4,11 +4,19 @@ import sqlite3
 import asyncio
 from telegram import Update, ReplyKeyboardMarkup, __version__ as TG_VER
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CallbackQueryHandler
 
 # Database setup
 conn = sqlite3.connect('subscribers.db')
 c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS subscribers (telegram_id text, subscribed text)''')
+c.execute('''CREATE TABLE IF NOT EXISTS subscribers 
+             (telegram_id text, subscribed text)''')
+c.execute("PRAGMA table_info(subscribers)")
+columns = [column[1] for column in c.fetchall()]
+if 'subscribed' not in columns:
+    c.execute("ALTER TABLE subscribers ADD COLUMN subscribed text DEFAULT 'subscribed'")
+
 
 def save_subscriber(telegram_id):
     c.execute("SELECT telegram_id FROM subscribers WHERE telegram_id = ?", (telegram_id,))
@@ -71,27 +79,45 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     save_subscriber(user.id)
     logger.info(f"User {user.id} started the bot")
-    keyboard = ReplyKeyboardMarkup([QUESTIONS_OPTIONS[0]], one_time_keyboard=True)
+    keyboard = [
+        [
+            InlineKeyboardButton(option, callback_data=str(index))
+            for index, option in enumerate(QUESTION_OPTIONS[0])
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        QUESTIONS_TEXT[0],
-        reply_markup=keyboard,
+        QUESTION_TEXT[0],
+        reply_markup=reply_markup,
     )
     context.user_data['current_question'] = 0
 
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    query.answer()
     user = update.effective_user
-    answer = update.message.text
+    answer = query.data
     current_question = context.user_data['current_question']
-    save_answer(user, QUESTIONS_TEXT[current_question], answer)
+    save_answer(user, QUESTION_TEXT[current_question], answer)
     logger.info(f"User {user.id} answered question {current_question} with {answer}")
-    if current_question < len(QUESTIONS_TEXT) - 1:
-        keyboard = ReplyKeyboardMarkup([QUESTIONS_OPTIONS[current_question + 1]], one_time_keyboard=True)
-        await update.message.reply_text(QUESTIONS_TEXT[current_question + 1], reply_markup=keyboard)
+    if current_question < len(QUESTION_TEXT) - 1:
+        keyboard = [
+            [
+                InlineKeyboardButton(option, callback_data=str(index))
+                for index, option in enumerate(QUESTION_OPTIONS[current_question + 1])
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            text=QUESTION_TEXT[current_question + 1],
+            reply_markup=reply_markup,
+        )
         context.user_data['current_question'] = current_question + 1
     else:
-        await update.message.reply_text("Thank you for completing the survey!")
+        query.edit_message_text(text="Thank you for completing the survey!")
         return -1
+
 
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user.id != 358654127:
@@ -110,6 +136,7 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 def main() -> None:
     application = Application.builder().token("6232551131:AAG2-8nMYPJgB_ihvwRHpALG8NIhAk4NiSw").build()
+    application.add_handler(CallbackQueryHandler(next_question))
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("broadcast", broadcast))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, next_question))
