@@ -28,11 +28,7 @@ def save_subscriber(telegram_id):
 
 
 
-QUESTIONS_TEXT = [
-     "Як Ви оцінюєте свою підготовку до виконання практичних завдань в лікарні?",
-    "Якими Ви оцінюєте свої знання з організації роботи в лікарнях?",
-    "Ваш рівень знань щодо правильного оформлення медичної документації:",
-    "Як впевнено Ви проводите опитування пацієнтів та заповнюєте історію хвороби?",
+QUESTION_TEXT = [
     "Чи відчуваєте Ви нестачу навичок для вирішення конфліктних ситуацій?",
     "Чи знаєте Ви, як шукати стажування та навчальні курси для розвитку в медицині?",
     "Чи маєте Ви досвід волонтерства або роботи в медичних організаціях під час навчання?",
@@ -45,11 +41,7 @@ QUESTIONS_TEXT = [
     "Чи достатньо, на Вашу думку, аспектів медичної етики розглядається під час навчання у медичних університетах?"
 ]
 
-QUESTIONS_OPTIONS = [
-    ["незадовільними", "достатніми", "хорошими", "відмінними"],
-    ["незадовільними", "достатніми", "хорошими", "відмінними"],
-    ["незадовільний", "достатній", "хороший", "відмінний"],
-    ["невпевнено", "з певними труднощами", "впевнено", "дуже впевнено"],
+QUESTION_OPTIONS = [
     ["так", "ні"],
     ["так", "ні"],
     ["так", "ні"],
@@ -69,11 +61,17 @@ CSV_FILE = "survey_results.csv"
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def save_answer(user, question, answer):
+def save_answer(user, question, answer_index):
     """Save the user's answer to a CSV file."""
+    # Convert the answer index to an integer
+    answer_index = int(answer_index)
+    # Get the current question index
+    current_question = QUESTION_TEXT.index(question)
+    # Get the answer text from QUESTION_OPTIONS
+    answer_text = QUESTION_OPTIONS[current_question][answer_index]
     with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        writer.writerow([user, question, answer])
+        writer.writerow([user, question, answer_text])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
@@ -82,7 +80,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
         [
             InlineKeyboardButton(option, callback_data=str(index))
-            for index, option in enumerate(QUESTION_OPTIONS[0])
+            for index, option in enumerate(QUESTION_OPTIONS[0][:2])  # First two options in the first row
+        ],
+        [
+            InlineKeyboardButton(option, callback_data=str(index))
+            for index, option in enumerate(QUESTION_OPTIONS[0][2:])  # Last two options in the second row
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -95,7 +97,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
-    query.answer()
+    await query.answer()
     user = update.effective_user
     answer = query.data
     current_question = context.user_data['current_question']
@@ -105,17 +107,23 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         keyboard = [
             [
                 InlineKeyboardButton(option, callback_data=str(index))
-                for index, option in enumerate(QUESTION_OPTIONS[current_question + 1])
+                for index, option in enumerate(QUESTION_OPTIONS[current_question + 1][:2])
+                # First two options in the current_question list
+            ],
+            [
+                InlineKeyboardButton(option, callback_data=str(index))
+                for index, option in enumerate(QUESTION_OPTIONS[current_question + 1][2:])
+                # Last two options in the current_question list
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(
+        await query.edit_message_text(
             text=QUESTION_TEXT[current_question + 1],
             reply_markup=reply_markup,
         )
         context.user_data['current_question'] = current_question + 1
     else:
-        query.edit_message_text(text="Thank you for completing the survey!")
+        await query.edit_message_text(text="Thank you for completing the survey!")
         return -1
 
 
