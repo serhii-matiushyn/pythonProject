@@ -4,7 +4,7 @@ import sqlite3
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
-
+answers = []
 # Database setup
 conn = sqlite3.connect('subscribers.db')
 c = conn.cursor()
@@ -58,7 +58,13 @@ CSV_FILE = "survey_results.csv"
 # Enable logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+async def calculate_score():
+    total_questions = 10
+    score = 100
+    for answer in answers:
+        if answer.lower() == 'ні':
+            score -= 10
+    return score
 def save_answer(user, question, answer_index):
     """Save the user's answer to a CSV file."""
     # Convert the answer index to an integer
@@ -67,6 +73,7 @@ def save_answer(user, question, answer_index):
     current_question = QUESTION_TEXT.index(question)
     # Get the answer text from QUESTION_OPTIONS
     answer_text = QUESTION_OPTIONS[current_question][answer_index]
+    answers.append(answer_text)
     with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([user, question, answer_text])
@@ -118,7 +125,7 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         )
         context.user_data['current_question'] = current_question + 1
     else:
-        score = calculate_score(answers)
+        score = await calculate_score()
         await query.edit_message_text(text=f"""Результати: Рівень вашої готовності {score}%
             Ваш статус:
             90%-100% : Крутий інтерн 😎
