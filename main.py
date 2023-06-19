@@ -7,14 +7,28 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 from datetime import datetime
 user_scores = {}
 # Database setup
+# Database setup
 conn = sqlite3.connect('subscribers.db')
 c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS subscribers 
-             (telegram_id text, subscribed text)''')
+
+# Create the subscribers table if it doesn't exist
+c.execute('''CREATE TABLE IF NOT EXISTS subscribers (telegram_id text)''')
+
+# Get the column info
 c.execute("PRAGMA table_info(subscribers)")
 columns = [column[1] for column in c.fetchall()]
+
+# Add the subscribed column if it doesn't exist
 if 'subscribed' not in columns:
     c.execute("ALTER TABLE subscribers ADD COLUMN subscribed text DEFAULT 'subscribed'")
+
+# Add the phone_number column if it doesn't exist
+if 'phone_number' not in columns:
+    c.execute("ALTER TABLE subscribers ADD COLUMN phone_number text")
+
+# Add the email column if it doesn't exist
+if 'email' not in columns:
+    c.execute("ALTER TABLE subscribers ADD COLUMN email text")
 
 
 def save_subscriber(telegram_id, phone_number, email):
