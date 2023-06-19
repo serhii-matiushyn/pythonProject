@@ -107,19 +107,16 @@ async def request_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     keyboard = [[KeyboardButton("📞Надати номер📞", request_contact=True)]]
     reply_markup = ReplyKeyboardMarkup(keyboard)
     await update.message.reply_text("Будь ласка, поділіться вашим номером телефона", reply_markup=reply_markup)
-def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message.contact:
         contact = update.message.contact
         phone_number = contact.phone_number
     else:
         phone_number = update.message.text
-
     # Save the phone number to the user data
     context.user_data['phone_number'] = phone_number
-
     # Request the user's email
-    request_email(update, context)
-
+    await request_email(update, context)  # <-- Use 'await' here
     # Save the subscriber's data
     save_subscriber(update.effective_user.id, phone_number, None)
 
@@ -127,14 +124,25 @@ def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def request_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("💌Введіть свій e-mail💌")
 async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    email = update.message.text
     user_id = update.effective_user.id
-    # Save the email to the user data
-    context.user_data['email'] = email
-    # Save the subscriber's data
-    save_subscriber(user_id, context.user_data['phone_number'], email)
-    # Start the quiz
-    await send_first_question(update, context)
+    if 'phone_number' not in context.user_data:
+        # Користувач щойно ввів свій номер телефону
+        phone_number = update.message.text
+        # Зберегти номер телефону в даних користувача
+        context.user_data['phone_number'] = phone_number
+        # Зберегти дані передплатника
+        save_subscriber(user_id, phone_number, None)
+        # Запросити електронну пошту користувача
+        await request_email(update, context)
+    else:
+        # Користувач щойно ввів свою електронну пошту
+        email = update.message.text
+        # Зберегти електронну пошту в даних користувача
+        context.user_data['email'] = email
+        # Зберегти дані передплатника
+        save_subscriber(user_id, context.user_data['phone_number'], email)
+        # Розпочати тест
+        await send_first_question(update, context)
 
 async def send_first_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Create the keyboard for the first question

@@ -1,10 +1,2 @@
 Timestamp,User,Final Result,Answers,Score
-2023-06-19 18:17:45,"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні']",50
-2023-06-19 18:18:15,"User(first_name='Люда НМУ', id=654315958, is_bot=False, language_code='en')",Final Result,"['так', 'так', 'так', 'так', 'так', 'так', 'так', 'так', 'так', 'так']",100
-2023-06-19 18:18:25,"User(first_name='Serhii', id=2094777130, is_bot=False, language_code='uk', last_name='Matiushyn')",Final Result,"['ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так']",50
-2023-06-19 18:19:32,"User(first_name='Анжеліка Шевчук', id=382030379, is_bot=False, language_code='en', username='Lika23S')",Final Result,"['так', 'так', 'так', 'так', 'так', 'так', 'так', 'так', 'так', 'так']",100
-2023-06-19 19:49:04,"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні']",50
-2023-06-19 19:54:25,"User(first_name='Serhii', id=2094777130, is_bot=False, language_code='uk', last_name='Matiushyn')",Final Result,"['так', 'ні', 'так', 'так', 'так', 'ні', 'так', 'так', 'ні', 'так']",70
-2023-06-19 21:15:34,"User(first_name='Vanessa', id=448926198, is_bot=False, language_code='uk', last_name='Fedirko', username='vanessafedirko')",Final Result,"['так', 'так', 'ні', 'так', 'так', 'ні', 'ні', 'так', 'ні', 'так']",60
-2023-06-19 21:16:47,"User(first_name='Yevhenii', id=389234133, is_bot=False, language_code='uk', last_name='Prykhodko', username='prykhodko96')",Final Result,"['так', 'так', 'так', 'так', 'так', 'так', 'так', 'так', 'ні', 'так']",90
-2023-06-19 21:43:02,"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні']",50
+2023-06-19 22:33:26,"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'так', 'ні', 'так']",60
