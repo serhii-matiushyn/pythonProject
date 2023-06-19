@@ -115,26 +115,9 @@ async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # Save the email to the user data
     context.user_data['email'] = email
     # Start the quiz
-    await start(update, context)
+    await send_first_question(update, context)
 
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # Initialize the answers for the user
-    context.user_data['answers'] = []
-
-    # Get the user
-    user = update.effective_user
-    # Request the user's contact information
-    await request_contact(update, context)
-    # Retrieve the phone number and email from the user data
-    phone_number = context.user_data.get('phone_number')
-    email = context.user_data.get('email')
-
-    # Save the subscriber's information
-    save_subscriber(user.id, phone_number, email)
-
-    logger.info(f"User {user.id} started the bot")
-
+async def send_first_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Create the keyboard for the first question
     keyboard = [
         [InlineKeyboardButton(option, callback_data=str(index)) for index, option in enumerate(QUESTION_OPTIONS[0])]
@@ -151,7 +134,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data['current_question'] = 0
 
     # Clear the answers for the user
-    user_scores[user.id] = []
+    user_scores[update.effective_user.id] = []
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Initialize the answers for the user
+    context.user_data['answers'] = []
+
+    # Get the user
+    user = update.effective_user
+
+    # Request the user's contact information
+    await request_contact(update, context)
 
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
