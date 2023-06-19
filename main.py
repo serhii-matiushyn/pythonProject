@@ -97,8 +97,8 @@ def calculate_score(user_id):
             score -= 10
     return score
 async def request_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[InlineKeyboardButton("Share Contact", request_contact=True)]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    keyboard = [[KeyboardButton("Share Contact", request_contact=True)]]
+    reply_markup = ReplyKeyboardMarkup(keyboard)
     await update.message.reply_text("Please share your contact information.", reply_markup=reply_markup)
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     contact = update.message.contact
@@ -124,7 +124,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Get the user
     user = update.effective_user
-
+    # Request the user's contact information
+    await request_contact(update, context)
     # Retrieve the phone number and email from the user data
     phone_number = context.user_data.get('phone_number')
     email = context.user_data.get('email')
