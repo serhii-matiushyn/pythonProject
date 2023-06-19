@@ -5,6 +5,7 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 answers = []
+user_scores = {}
 # Database setup
 conn = sqlite3.connect('subscribers.db')
 c = conn.cursor()
@@ -68,7 +69,12 @@ def save_answer(user, question, answer_index):
     # Get the answer text from QUESTION_OPTIONS
     answer_text = QUESTION_OPTIONS[current_question][answer_index]
     answers.append(answer_text)
-def calculate_score():
+    user_id = user.id
+    if user_id not in user_scores:
+        user_scores[user_id] = []
+    user_scores[user_id].append(answer_index)
+def calculate_score(user_id):
+    answers = user_scores[user_id]
     total_questions = 10
     score = 100
     for answer in answers:
@@ -98,6 +104,7 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     query = update.callback_query
     await query.answer()
     user = update.effective_user
+    user_id = user.id
     answer = query.data
     current_question = context.user_data['current_question']
     save_answer(user, QUESTION_TEXT[current_question], answer)
@@ -123,7 +130,7 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         context.user_data['current_question'] = current_question + 1
     else:
 
-        score = await calculate_score(answers)
+        score = answers = user_scores[user_id]
         await save_final_result(user, answers, score)
         await query.edit_message_text(text=f"""Результати: Рівень вашої готовності *{score}%*
             Ваш статус:
