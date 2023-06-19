@@ -4,7 +4,7 @@ import sqlite3
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
-answers = []
+from datetime import datetime
 user_scores = {}
 # Database setup
 conn = sqlite3.connect('subscribers.db')
@@ -60,7 +60,7 @@ CSV_FILE = 'results.csv'  # Specify the name of your CSV file here
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def save_answer(user, question, answer_index):
+def save_answer(user, question, answer_index, context):
     """Save the user's answer to a CSV file."""
     # Convert the answer index to an integer
     answer_index = int(answer_index)
@@ -68,7 +68,7 @@ def save_answer(user, question, answer_index):
     current_question = QUESTION_TEXT.index(question)
     # Get the answer text from QUESTION_OPTIONS
     answer_text = QUESTION_OPTIONS[current_question][answer_index]
-    answers.append(answer_text)
+    context.user_data['answers'].append(answer_text)
     user_id = user.id
     if user_id not in user_scores:
         user_scores[user_id] = []
@@ -82,15 +82,12 @@ def calculate_score(user_id):
             score -= 10
     return score
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data['answers'] = []
     user = update.effective_user
     save_subscriber(user.id)
     logger.info(f"User {user.id} started the bot")
     keyboard = [
-        [
-            InlineKeyboardButton(option, callback_data=str(index))
-            for index, option in enumerate(QUESTION_OPTIONS[0][:2])  # First two options in the first row
-        ],
-
+        [InlineKeyboardButton(option, callback_data=str(index)) for index, option in enumerate(QUESTION_OPTIONS[0])]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
@@ -98,16 +95,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_markup=reply_markup,
     )
     context.user_data['current_question'] = 0
+    user_scores[user.id] = []  # Clear the answers for the user
 
 
-async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+
+async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     user = update.effective_user
     user_id = user.id
     answer = query.data
     current_question = context.user_data['current_question']
-    save_answer(user, QUESTION_TEXT[current_question], answer)
+    save_answer(user, QUESTION_TEXT[current_question], answer, context)
     logger.info(f"User {user.id} answered question {current_question} with {answer}")
     if current_question < len(QUESTION_TEXT) - 1:
         keyboard = [
@@ -129,15 +128,23 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         )
         context.user_data['current_question'] = current_question + 1
     else:
+        score = await calculate_score(context.user_data['answers'])
+        await save_final_result(user, context.user_data['answers'], score, context)
 
-        score = answers = user_scores[user_id]
-        await save_final_result(user, answers, score)
-        await query.edit_message_text(text=f"""Результати: Рівень вашої готовності *{score}%*
-            Ваш статус:
-            90%-100% : Крутий інтерн 😎
-            70-89% : Перспективний інтерн 😏
-            50-69% : Компетентний інтерн 🧐
-            0 - 49% : Інтерн початківець 👶""")
+        # Determine the status based on the score
+        if 90 <= score <= 100:
+               status = "Крутий інтерн 😎"
+        elif 70 <= score < 90:
+                status = "Перспективний інтерн 😏"
+        elif 50 <= score < 70:
+                status = "Компетентний інтерн 🧐"
+        else:
+                status = "Інтерн початківець 👶"
+
+        await query.edit_message_text(
+                text=f"""Результати: Рівень вашої готовності *{score}%*
+Ваш статус: {status}"""
+        )
         return -1
 
 
@@ -159,20 +166,21 @@ async def calculate_score(answers):
     total_questions = 10
     score = 100
     for answer in answers:
-        if answer.lower() == 'ні':
+        if answer == 'ні':  # 'ні' is considered as 'no'
             score -= 10
     return score
-async def save_final_result(user, answers, score):
+async def save_final_result(user, answers, score, context):
     """Save the user's final result to a CSV file."""
     try:
         with open(CSV_FILE, 'x', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
-            writer.writerow(['User', 'Final Result', 'Answers', 'Score'])
+            writer.writerow(['Timestamp', 'User', 'Final Result', 'Answers', 'Score'])
     except FileExistsError:
         pass
     with open(CSV_FILE, 'a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        writer.writerow([user, 'Final Result', answers, score])
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        writer.writerow([timestamp, user, 'Final Result', answers, score])
 
 def main() -> None:
     application = Application.builder().token("6232551131:AAG2-8nMYPJgB_ihvwRHpALG8NIhAk4NiSw").build()

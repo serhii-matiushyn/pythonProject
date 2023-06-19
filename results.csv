@@ -1,6 +1,2 @@
-User,Final Result,Answers,Score
-"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'так', 'ні', 'так', 'так', 'ні', 'так', 'так', 'ні', 'ні']",60
-"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'так', 'ні', 'так', 'так', 'ні', 'так', 'так', 'ні', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні']",10
-"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'так', 'ні', 'так', 'так', 'ні', 'так', 'так', 'ні', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні']",-40
-"User(first_name='Люда НМУ', id=654315958, is_bot=False, language_code='en')",Final Result,"['так', 'так', 'ні', 'так', 'так', 'ні', 'так', 'так', 'ні', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'ні', 'так', 'так', 'ні', 'ні', 'так', 'ні', 'так']",-90
-"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"[0, 1, 0, 1, 0, 1, 0, 1, 0, 1]","[0, 1, 0, 1, 0, 1, 0, 1, 0, 1]"
+Timestamp,User,Final Result,Answers,Score
+2023-06-19 14:44:43,"User(first_name='Люда НМУ', id=654315958, is_bot=False, language_code='en')",Final Result,"['так', 'ні', 'ні', 'ні', 'так', 'ні', 'ні', 'так', 'ні', 'так']",40
