@@ -2,7 +2,7 @@ import logging
 import csv
 import sqlite3
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, Contact
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 from datetime import datetime
 user_scores = {}
@@ -17,13 +17,14 @@ if 'subscribed' not in columns:
     c.execute("ALTER TABLE subscribers ADD COLUMN subscribed text DEFAULT 'subscribed'")
 
 
-def save_subscriber(telegram_id):
+def save_subscriber(telegram_id, phone_number, email):
     c.execute("SELECT telegram_id FROM subscribers WHERE telegram_id = ?", (telegram_id,))
     if c.fetchone() is None:
-        c.execute("INSERT INTO subscribers VALUES (?, 'subscribed')", (telegram_id,))
+        c.execute("INSERT INTO subscribers VALUES (?, ?, ?, 'subscribed')", (telegram_id, phone_number, email))
     else:
-        c.execute("UPDATE subscribers SET subscribed = 'subscribed' WHERE telegram_id = ?", (telegram_id,))
+        c.execute("UPDATE subscribers SET phone_number = ?, email = ?, subscribed = 'subscribed' WHERE telegram_id = ?", (phone_number, email, telegram_id))
     conn.commit()
+
 
 
 
@@ -81,6 +82,14 @@ def calculate_score(user_id):
         if answer.lower() == 'ні':
             score -= 10
     return score
+async def request_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    keyboard = [[InlineKeyboardButton("Share Contact", request_contact=True)]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Please share your contact information.", reply_markup=reply_markup)
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    contact = update.message.contact
+    save_subscriber(contact.user_id, contact.phone_number, contact.email)
+    await start(update, context)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data['answers'] = []
     user = update.effective_user
@@ -186,6 +195,8 @@ def main() -> None:
     application = Application.builder().token("6232551131:AAG2-8nMYPJgB_ihvwRHpALG8NIhAk4NiSw").build()
     application.add_handler(CallbackQueryHandler(next_question))
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("start", request_contact))
+    application.add_handler(MessageHandler(filters.CONTACT, handle_contact))
     application.add_handler(CommandHandler("broadcast", broadcast))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, next_question))
     application.run_polling()
