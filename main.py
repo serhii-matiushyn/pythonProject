@@ -5,6 +5,8 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, Contact
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 from datetime import datetime
+from telegram.error import BadRequest, Forbidden
+
 from telegram.error import BadRequest
 user_scores = {}
 # Database setup
@@ -48,16 +50,16 @@ def save_subscriber(telegram_id, phone_number, email):
 
 
 QUESTION_TEXT = [
-    "1. Чи маєте ви досвід в лікарні? (асистенція, медсестринство, стажування)",
-    "2. Чи проводили ви опитування та огляд пацієнтів?",
-    "3. Чи вмієте ви швидко та якісно заповнювати медичну документацію? (історія хвороби, виписка, щоденник, протокол операції і т.д)",
-    "4. Чи вмієте ви знаходити компроміс в конфліктних ситуаціях?",
-    "5. Чи знаєте ви, як і де шукати стажування та навчальні курси для розвитку в медицині?",
-    "6. Чи знаєте ви як користуватися медичними інформаційними системами (МІС), зокрема, як вести електронні медичні записи?",
-    "7. Чи знаєте ви як співпрацювати з наставником так щоб він був зацікавлений вас навчити?",
-    "8. Чи маєте Ви досвід участі в наукових дослідженнях та публікаціях?",
-    "9. Чи знаєте ви законодавчу базу необхідну для практичної діяльності лікаря (зокрема, з метою юридичного захисту)?",
-    "10.Чи потрібні вам додаткові програми для розвитку себе як конкурентноспроможного і затребуваного спеціаліста в медичній сфері в Україні?"
+    "1/10 Чи маєте ви досвід в лікарні? (асистенція, медсестринство, стажування)",
+    "2/10 Чи проводили ви опитування та огляд пацієнтів?",
+    "3/10 Чи вмієте ви швидко та якісно заповнювати медичну документацію? (історія хвороби, виписка, щоденник, протокол операції і т.д)",
+    "4/10 Чи вмієте ви знаходити компроміс в конфліктних ситуаціях?",
+    "5/10 Чи знаєте ви, як і де шукати стажування та навчальні курси для розвитку в медицині?",
+    "6/10 Чи знаєте ви як користуватися медичними інформаційними системами (МІС), зокрема, як вести електронні медичні записи?",
+    "7/10 Чи знаєте ви як співпрацювати з наставником так щоб він був зацікавлений вас навчити?",
+    "8/10 Чи маєте Ви досвід участі в наукових дослідженнях та публікаціях?",
+    "9/10 Чи знаєте ви законодавчу базу необхідну для практичної діяльності лікаря (зокрема, з метою юридичного захисту)?",
+    "10/10 Чи потрібні вам додаткові програми для розвитку себе як конкурентноспроможного і затребуваного спеціаліста в медичній сфері в Україні?"
 ]
 
 QUESTION_OPTIONS = [
@@ -102,9 +104,9 @@ def calculate_score(user_id):
             score -= 10
     return score
 async def request_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[KeyboardButton("Share Contact", request_contact=True)]]
+    keyboard = [[KeyboardButton("📞Надати номер📞", request_contact=True)]]
     reply_markup = ReplyKeyboardMarkup(keyboard)
-    await update.message.reply_text("Please share your contact information.", reply_markup=reply_markup)
+    await update.message.reply_text("Будь ласка, поділіться вашим номером телефона", reply_markup=reply_markup)
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     contact = update.message.contact
     # Save the phone number to the user data
@@ -116,7 +118,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def request_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Please enter your email.")
+    await update.message.reply_text("💌Введіть свій e-mail💌")
 async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     email = update.message.text
     user_id = update.effective_user.id
@@ -222,14 +224,19 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             conn.commit()
             await asyncio.sleep(1)  # Зачекати 1 секунду
         except BadRequest as e:
-            if 'bot was blocked by the user' in str(e):
+            if 'Forbidden: bot was blocked by the user' in str(e):
                 logger.error(f"Bot was blocked by the subscriber {chat_id}")
                 c.execute("UPDATE subscribers SET subscribed = 'unsubscribed' WHERE telegram_id = ?", (chat_id,))
                 conn.commit()
             else:
                 logger.error(f"Failed to send message to subscriber {chat_id} due to BadRequest: {e}")
-        except Exception as e:
-            logger.error(f"Failed to send message to subscriber {chat_id}: {e}")
+        except Forbidden as e:
+            if 'bot was blocked by the user' in str(e):
+                logger.error(f"Bot was blocked by the subscriber {chat_id}")
+                c.execute("UPDATE subscribers SET subscribed = 'unsubscribed' WHERE telegram_id = ?", (chat_id,))
+                conn.commit()
+            else:
+                logger.error(f"Failed to send message to subscriber {chat_id} due to Forbidden: {e}")
 
 
 async def calculate_score(answers):
