@@ -107,14 +107,21 @@ async def request_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     keyboard = [[KeyboardButton("📞Надати номер📞", request_contact=True)]]
     reply_markup = ReplyKeyboardMarkup(keyboard)
     await update.message.reply_text("Будь ласка, поділіться вашим номером телефона", reply_markup=reply_markup)
-async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    contact = update.message.contact
+def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message.contact:
+        contact = update.message.contact
+        phone_number = contact.phone_number
+    else:
+        phone_number = update.message.text
+
     # Save the phone number to the user data
-    context.user_data['phone_number'] = contact.phone_number
+    context.user_data['phone_number'] = phone_number
+
     # Request the user's email
-    await request_email(update, context)
+    request_email(update, context)
+
     # Save the subscriber's data
-    save_subscriber(update.effective_user.id, contact.phone_number, None)
+    save_subscriber(update.effective_user.id, phone_number, None)
 
 
 async def request_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
