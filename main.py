@@ -5,6 +5,7 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, Contact
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 from datetime import datetime
+from telegram.error import BadRequest
 user_scores = {}
 # Database setup
 # Database setup
@@ -13,6 +14,7 @@ c = conn.cursor()
 
 # Create the subscribers table if it doesn't exist
 c.execute('''CREATE TABLE IF NOT EXISTS subscribers (telegram_id text)''')
+conn.commit()  # commit the changes
 
 # Get the column info
 c.execute("PRAGMA table_info(subscribers)")
@@ -21,14 +23,17 @@ columns = [column[1] for column in c.fetchall()]
 # Add the subscribed column if it doesn't exist
 if 'subscribed' not in columns:
     c.execute("ALTER TABLE subscribers ADD COLUMN subscribed text DEFAULT 'subscribed'")
+    conn.commit()  # commit the changes
 
 # Add the phone_number column if it doesn't exist
 if 'phone_number' not in columns:
     c.execute("ALTER TABLE subscribers ADD COLUMN phone_number text")
+    conn.commit()  # commit the changes
 
 # Add the email column if it doesn't exist
 if 'email' not in columns:
     c.execute("ALTER TABLE subscribers ADD COLUMN email text")
+    conn.commit()  # commit the changes
 
 
 def save_subscriber(telegram_id, phone_number, email):
@@ -37,7 +42,7 @@ def save_subscriber(telegram_id, phone_number, email):
         c.execute("INSERT INTO subscribers VALUES (?, ?, ?, 'subscribed')", (telegram_id, phone_number, email))
     else:
         c.execute("UPDATE subscribers SET phone_number = ?, email = ?, subscribed = 'subscribed' WHERE telegram_id = ?", (phone_number, email, telegram_id))
-    conn.commit()
+    conn.commit()  # commit the changes
 
 
 
@@ -106,6 +111,9 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     context.user_data['phone_number'] = contact.phone_number
     # Request the user's email
     await request_email(update, context)
+    # Save the subscriber's data
+    save_subscriber(update.effective_user.id, contact.phone_number, None)
+
 
 async def request_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Please enter your email.")
@@ -114,6 +122,8 @@ async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     user_id = update.effective_user.id
     # Save the email to the user data
     context.user_data['email'] = email
+    # Save the subscriber's data
+    save_subscriber(user_id, context.user_data['phone_number'], email)
     # Start the quiz
     await send_first_question(update, context)
 
@@ -195,19 +205,32 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return -1
 
 
+from telegram.error import BadRequest
+
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user.id != 358654127:
         return
     message = ' '.join(context.args)
-    for row in c.execute('SELECT telegram_id FROM subscribers'):
+    c.execute('SELECT telegram_id FROM subscribers')
+    rows = c.fetchall()  # Отримати всі рядки з результатами запиту SELECT
+    for row in rows:
         try:
-            await context.bot.send_message(chat_id=row[0], text=message)
-            logger.info(f"Sent message to subscriber {row[0]}")
-            await asyncio.sleep(1)  # wait for 1 second
-        except Exception as e:
-            logger.error(f"Failed to send message to subscriber {row[0]}: {e}")
-            c.execute("UPDATE subscribers SET subscribed = 'unsubscribed' WHERE telegram_id = ?", (row[0],))
+            chat_id = row[0]  # Отримати значення telegram_id з рядка
+            await context.bot.send_message(chat_id=chat_id, text=message)
+            logger.info(f"Sent message to subscriber {chat_id}")
+            c.execute("UPDATE subscribers SET subscribed = 'subscribed' WHERE telegram_id = ?", (chat_id,))
             conn.commit()
+            await asyncio.sleep(1)  # Зачекати 1 секунду
+        except BadRequest as e:
+            if 'bot was blocked by the user' in str(e):
+                logger.error(f"Bot was blocked by the subscriber {chat_id}")
+                c.execute("UPDATE subscribers SET subscribed = 'unsubscribed' WHERE telegram_id = ?", (chat_id,))
+                conn.commit()
+            else:
+                logger.error(f"Failed to send message to subscriber {chat_id} due to BadRequest: {e}")
+        except Exception as e:
+            logger.error(f"Failed to send message to subscriber {chat_id}: {e}")
+
 
 async def calculate_score(answers):
     total_questions = 10
