@@ -88,24 +88,55 @@ async def request_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await update.message.reply_text("Please share your contact information.", reply_markup=reply_markup)
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     contact = update.message.contact
-    save_subscriber(contact.user_id, contact.phone_number, contact.email)
+    # Save the phone number to the user data
+    context.user_data['phone_number'] = contact.phone_number
+    # Request the user's email
+    await request_email(update, context)
+
+async def request_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Please enter your email.")
+async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    email = update.message.text
+    user_id = update.effective_user.id
+    # Save the email to the user data
+    context.user_data['email'] = email
+    # Start the quiz
     await start(update, context)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Initialize the answers for the user
     context.user_data['answers'] = []
+
+    # Get the user
     user = update.effective_user
-    save_subscriber(user.id)
+
+    # Retrieve the phone number and email from the user data
+    phone_number = context.user_data.get('phone_number')
+    email = context.user_data.get('email')
+
+    # Save the subscriber's information
+    save_subscriber(user.id, phone_number, email)
+
     logger.info(f"User {user.id} started the bot")
+
+    # Create the keyboard for the first question
     keyboard = [
         [InlineKeyboardButton(option, callback_data=str(index)) for index, option in enumerate(QUESTION_OPTIONS[0])]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Send the first question
     await update.message.reply_text(
         QUESTION_TEXT[0],
         reply_markup=reply_markup,
     )
-    context.user_data['current_question'] = 0
-    user_scores[user.id] = []  # Clear the answers for the user
 
+    # Set the current question to 0
+    context.user_data['current_question'] = 0
+
+    # Clear the answers for the user
+    user_scores[user.id] = []
 
 
 async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -193,6 +224,7 @@ async def save_final_result(user, answers, score, context):
 
 def main() -> None:
     application = Application.builder().token("6232551131:AAG2-8nMYPJgB_ihvwRHpALG8NIhAk4NiSw").build()
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_email))
     application.add_handler(CallbackQueryHandler(next_question))
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("start", request_contact))
