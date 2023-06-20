@@ -5,14 +5,14 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, Contact
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 from datetime import datetime
+from telegram.ext import BaseFilter
 from telegram.error import BadRequest, Forbidden
-
-from telegram.error import BadRequest
 user_scores = {}
 # Database setup
 # Database setup
 conn = sqlite3.connect('subscribers.db')
 c = conn.cursor()
+
 
 # Create the subscribers table if it doesn't exist
 c.execute('''CREATE TABLE IF NOT EXISTS subscribers (telegram_id text)''')
@@ -224,35 +224,42 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 from telegram.error import BadRequest
 
+
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user.id != 358654127:
         return
-    message = ' '.join(context.args)
-    c.execute('SELECT telegram_id FROM subscribers')
-    rows = c.fetchall()  # Отримати всі рядки з результатами запиту SELECT
-    for row in rows:
-        try:
-            chat_id = row[0]  # Отримати значення telegram_id з рядка
-            await context.bot.send_message(chat_id=chat_id, text=message)
-            logger.info(f"Sent message to subscriber {chat_id}")
-            c.execute("UPDATE subscribers SET subscribed = 'subscribed' WHERE telegram_id = ?", (chat_id,))
-            conn.commit()
-            await asyncio.sleep(1)  # Зачекати 1 секунду
-        except BadRequest as e:
-            if 'Forbidden: bot was blocked by the user' in str(e):
-                logger.error(f"Bot was blocked by the subscriber {chat_id}")
-                c.execute("UPDATE subscribers SET subscribed = 'unsubscribed' WHERE telegram_id = ?", (chat_id,))
-                conn.commit()
-            else:
-                logger.error(f"Failed to send message to subscriber {chat_id} due to BadRequest: {e}")
-        except Forbidden as e:
-            if 'bot was blocked by the user' in str(e):
-                logger.error(f"Bot was blocked by the subscriber {chat_id}")
-                c.execute("UPDATE subscribers SET subscribed = 'unsubscribed' WHERE telegram_id = ?", (chat_id,))
-                conn.commit()
-            else:
-                logger.error(f"Failed to send message to subscriber {chat_id} due to Forbidden: {e}")
+    context.user_data['broadcasting'] = True
+    await update.message.reply_text("Please send the next message, photo or document to broadcast.")
 
+async def handle_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if 'broadcasting' in context.user_data and context.user_data['broadcasting']:
+        message = update.message.text
+        document = update.message.document
+        photo = update.message.photo[-1] if update.message.photo else None
+
+        c.execute('SELECT telegram_id FROM subscribers')
+        rows = c.fetchall()
+
+        successful_sends = 0
+        failed_sends = 0
+
+        for row in rows:
+            try:
+                chat_id = row[0]
+                if message:
+                    await context.bot.send_message(chat_id=chat_id, text=message)
+                elif document:
+                    await context.bot.send_document(chat_id=chat_id, document=document.file_id)
+                elif photo:
+                    await context.bot.send_photo(chat_id=chat_id, photo=photo.file_id)
+                logger.info(f"Sent message to subscriber {chat_id}")
+                c.execute("UPDATE subscribers SET subscribed = 'subscribed' WHERE telegram_id = ?", (chat_id,))
+                successful_sends += 1
+            except BadRequest as e:
+                failed_sends += 1
+                # handle exceptions as before
+        context.user_data['broadcasting'] = False
+        await update.message.reply_text(f"Broadcast completed. {successful_sends} messages were sent successfully, {failed_sends} failed.")
 
 async def calculate_score(answers):
     total_questions = 10
@@ -276,14 +283,16 @@ async def save_final_result(user, answers, score, context):
 
 def main() -> None:
     application = Application.builder().token("6232551131:AAG2-8nMYPJgB_ihvwRHpALG8NIhAk4NiSw").build()
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_email))
-    application.add_handler(CallbackQueryHandler(next_question))
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("start", request_contact))
-    application.add_handler(MessageHandler(filters.CONTACT, handle_contact))
     application.add_handler(CommandHandler("broadcast", broadcast))
+    application.add_handler(CallbackQueryHandler(next_question))
+    application.add_handler(MessageHandler(filters.CONTACT, handle_contact))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, next_question))
+
     application.run_polling()
+
 
 if __name__ == '__main__':
     main()

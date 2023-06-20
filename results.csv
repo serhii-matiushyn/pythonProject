@@ -1,2 +1,5 @@
 Timestamp,User,Final Result,Answers,Score
 2023-06-19 22:33:26,"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'так', 'ні', 'так']",60
+2023-06-19 23:05:59,"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні', 'так', 'ні']",50
+2023-06-20 15:51:51,"User(first_name='Сергей', id=358654127, is_bot=False, is_premium=True, language_code='uk', last_name='Матюшин', username='MatjushinS')",Final Result,"['так', 'так', 'ні', 'так', 'так', 'ні', 'так', 'ні', 'так', 'ні']",60
+2023-06-20 15:54:14,"User(first_name='Serhii', id=2094777130, is_bot=False, language_code='uk', last_name='Matiushyn')",Final Result,"['так', 'ні', 'так', 'ні', 'так', 'так', 'ні', 'так', 'ні', 'ні']",50
