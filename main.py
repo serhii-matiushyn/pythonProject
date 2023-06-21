@@ -5,7 +5,7 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, Contact
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 from datetime import datetime
-from telegram.ext import filters
+from telegram.ext import filters, CallbackContext
 
 from telegram.error import BadRequest, Forbidden
 user_scores = {}
@@ -226,43 +226,46 @@ async def next_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 from telegram.error import BadRequest
 
 
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user.id != 358654127:
+def get_subscribers():
+    conn = sqlite3.connect('subscribers.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT telegram_id FROM subscribers")
+    subscribers = cursor.fetchall()
+    conn.close()
+    return subscribers
+
+def update_subscription_status(telegram_id, subscribed):
+    conn = sqlite3.connect('subscribers.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE subscribers SET subscribed = ? WHERE telegram_id = ?", (subscribed, telegram_id))
+    conn.commit()
+    conn.close()
+
+broadcast_mode = False
+
+async def handle_broadcast(update: Update, context: CallbackContext):
+    global broadcast_mode
+    if update.message.chat_id != 358654127:
         return
-    context.user_data['broadcasting'] = True
-    await update.message.reply_text("Broadcast started. Please send the next message, photo or document to broadcast.")
-
-async def handle_broadcast(update, context):
-    if 'broadcasting' in context.user_data and context.user_data['broadcasting']:
-        message = update.message.text
-        document = update.message.document
-        photo = update.message.photo[-1] if update.message.photo else None
-
+    if update.message.text == '/broadcast':
+        broadcast_mode = True
+        await context.bot.send_message(chat_id=update.message.chat_id, text='Broadcast started. Please send the next message, photo or document to broadcast.')
+    elif broadcast_mode:
+        broadcast_mode = False
+        text = update.message.text
+        await context.bot.send_message(chat_id=update.message.chat_id, text='Розпочинається розсилка...')
         successful_sends = 0
-        failed_sends = 0
-
-        for row in c.execute('SELECT telegram_id FROM subscribers'):
-            c.execute('SELECT telegram_id FROM subscribers')
-            rows = c.fetchall()  # Отримати всі рядки з результатами запиту SELECT
-
-        for row in rows:
+        for subscriber in get_subscribers():
             try:
-                chat_id = subscriber['telegram_id']
-                if message:
-                    await context.bot.send_message(chat_id=chat_id, text=message)
-                elif document:
-                     await context.bot.send_document(chat_id=chat_id, document=document.file_id)
-                elif photo:
-                    await context.bot.send_photo(chat_id=chat_id, photo=photo.file_id)
-
-                logger.info(f"Sent message to subscriber {chat_id}")
+                await context.bot.send_message(chat_id=subscriber[0], text=text)
                 successful_sends += 1
+                update_subscription_status(subscriber[0], 'subscribed')
             except Exception as e:
-                logger.error(f"Failed to send message to subscriber {chat_id}")
-                failed_sends += 1
+                logger.error(f"Failed to send message to subscriber {subscriber[0]}")
+                logger.error(e)
+                update_subscription_status(subscriber[0], 'unsubscribed')
+        await context.bot.send_message(chat_id=update.message.chat_id, text=f'Розсилка завершена. Успішно відправлено {successful_sends} повідомлень.')
 
-        context.user_data['broadcasting'] = False
-        update.message.reply_text(f"Broadcast completed. {successful_sends} messages were sent successfully, {failed_sends} failed.")
 async def calculate_score(answers):
     total_questions = 10
     score = 100
