@@ -280,7 +280,7 @@ async def handle_broadcast(update: Update, context: CallbackContext):
         if update.message.photo:
             photo_file = update.message.photo[-1].get_file()
             photo_path = 'user_photo.jpg'
-            await photo_file.download(photo_path)
+            photo_file.download(photo_path)
             for subscriber in get_subscribers():
                 try:
                     await context.bot.send_photo(chat_id=subscriber[0], photo=open(photo_path, 'rb'))
@@ -301,7 +301,8 @@ async def handle_broadcast(update: Update, context: CallbackContext):
                     logger.error(f"Failed to send message to subscriber {subscriber[0]}")  # Added logging
                     logger.error(e)  # Added logging
                     update_subscription_status(subscriber[0], 'unsubscribed')
-        await context.bot.send_message(chat_id=update.message.chat_id, text=f'Broadcast completed. Successfully sent {successful_sends} messages.')
+        await context.bot.send_message(chat_id=update.message.chat_id,
+                                       text=f'Broadcast completed. Successfully sent {successful_sends} messages.')
 
 async def calculate_score(answers):
     total_questions = 10
