@@ -5,7 +5,6 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, Contact
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 from datetime import datetime
-from telegram.ext import BaseFilter
 from telegram.error import BadRequest, Forbidden
 user_scores = {}
 # Database setup
@@ -229,38 +228,35 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user.id != 358654127:
         return
     context.user_data['broadcasting'] = True
-    await update.message.reply_text("Please send the next message, photo or document to broadcast.")
+    await update.message.reply_text("Broadcast started. Please send the next message, photo or document to broadcast.")
 
-async def handle_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def handle_broadcast(update, context):
     if 'broadcasting' in context.user_data and context.user_data['broadcasting']:
         message = update.message.text
         document = update.message.document
         photo = update.message.photo[-1] if update.message.photo else None
 
-        c.execute('SELECT telegram_id FROM subscribers')
-        rows = c.fetchall()
-
         successful_sends = 0
         failed_sends = 0
 
-        for row in rows:
+        for subscriber in subscribers:
             try:
-                chat_id = row[0]
+                chat_id = subscriber['telegram_id']
                 if message:
-                    await context.bot.send_message(chat_id=chat_id, text=message)
+                    context.bot.send_message(chat_id=chat_id, text=message)
                 elif document:
-                    await context.bot.send_document(chat_id=chat_id, document=document.file_id)
+                    context.bot.send_document(chat_id=chat_id, document=document.file_id)
                 elif photo:
-                    await context.bot.send_photo(chat_id=chat_id, photo=photo.file_id)
-                logger.info(f"Sent message to subscriber {chat_id}")
-                c.execute("UPDATE subscribers SET subscribed = 'subscribed' WHERE telegram_id = ?", (chat_id,))
-                successful_sends += 1
-            except BadRequest as e:
-                failed_sends += 1
-                # handle exceptions as before
-        context.user_data['broadcasting'] = False
-        await update.message.reply_text(f"Broadcast completed. {successful_sends} messages were sent successfully, {failed_sends} failed.")
+                    context.bot.send_photo(chat_id=chat_id, photo=photo.file_id)
 
+                logger.info(f"Sent message to subscriber {chat_id}")
+                successful_sends += 1
+            except Exception as e:
+                logger.error(f"Failed to send message to subscriber {chat_id}")
+                failed_sends += 1
+
+        context.user_data['broadcasting'] = False
+        update.message.reply_text(f"Broadcast completed. {successful_sends} messages were sent successfully, {failed_sends} failed.")
 async def calculate_score(answers):
     total_questions = 10
     score = 100
@@ -287,6 +283,8 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("start", request_contact))
     application.add_handler(CommandHandler("broadcast", broadcast))
+    dp.add_handler(MessageHandler(Filters.text | Filters.document | Filters.photo, handle_broadcast))
+
     application.add_handler(CallbackQueryHandler(next_question))
     application.add_handler(MessageHandler(filters.CONTACT, handle_contact))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, next_question))
