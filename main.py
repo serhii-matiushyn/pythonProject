@@ -5,6 +5,8 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, Contact
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 from datetime import datetime
+from telegram.ext import filters
+
 from telegram.error import BadRequest, Forbidden
 user_scores = {}
 # Database setup
@@ -283,7 +285,7 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("start", request_contact))
     application.add_handler(CommandHandler("broadcast", broadcast))
-    dp.add_handler(MessageHandler(Filters.text | Filters.document | Filters.photo, handle_broadcast))
+    application.add_handler(MessageHandler(filters.TEXT | filters.ATTACHMENT | filters.PHOTO, handle_broadcast))
 
     application.add_handler(CallbackQueryHandler(next_question))
     application.add_handler(MessageHandler(filters.CONTACT, handle_contact))
@@ -294,3 +296,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
