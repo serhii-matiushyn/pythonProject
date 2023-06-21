@@ -242,29 +242,66 @@ def update_subscription_status(telegram_id, subscribed):
     conn.close()
 
 broadcast_mode = False
+async def send_photo(update: Update, context: CallbackContext):
+    user = update.message.from_user
+    photo_file = await update.message.photo[-1].get_file()
+    await photo_file.download('user_photo.jpg')
+    logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
+    await update.message.reply_text('Got your photo! Thanks!')
 
 async def handle_broadcast(update: Update, context: CallbackContext):
     global broadcast_mode
+    logger.info("Handling broadcast...")  # Added logging
     if update.message.chat_id != 358654127:
+        logger.warning("Broadcast command received from unauthorized user.")  # Added logging
         return
-    if update.message.text == '/broadcast':
+    if update.message.text and update.message.text.startswith('/broadcast'):
         broadcast_mode = True
-        await context.bot.send_message(chat_id=update.message.chat_id, text='Broadcast started. Please send the next message, photo or document to broadcast.')
-    elif broadcast_mode:
+        text = update.message.text.replace('/broadcast', '').strip()  # Remove the '/broadcast' part from the message
+        if not text:  # If there's no text after '/broadcast', ask for the message to broadcast
+            await context.bot.send_message(chat_id=update.message.chat_id, text='Broadcast started. Please send the next message, photo or document to broadcast.')
+        else:  # If there's text after '/broadcast', start broadcasting immediately
+            await context.bot.send_message(chat_id=update.message.chat_id, text='Starting broadcast...')
+            successful_sends = 0
+            for subscriber in get_subscribers():
+                try:
+                    await context.bot.send_message(chat_id=subscriber[0], text=text)
+                    successful_sends += 1
+                    update_subscription_status(subscriber[0], 'subscribed')
+                except Exception as e:
+                    logger.error(f"Failed to send message to subscriber {subscriber[0]}")  # Added logging
+                    logger.error(e)  # Added logging
+                    update_subscription_status(subscriber[0], 'unsubscribed')
+            await context.bot.send_message(chat_id=update.message.chat_id, text=f'Broadcast completed. Successfully sent {successful_sends} messages.')
+            broadcast_mode = False  # Reset the broadcast mode
+    elif broadcast_mode:  # If the broadcast mode is on, broadcast the incoming message or photo
         broadcast_mode = False
-        text = update.message.text
-        await context.bot.send_message(chat_id=update.message.chat_id, text='Розпочинається розсилка...')
         successful_sends = 0
-        for subscriber in get_subscribers():
-            try:
-                await context.bot.send_message(chat_id=subscriber[0], text=text)
-                successful_sends += 1
-                update_subscription_status(subscriber[0], 'subscribed')
-            except Exception as e:
-                logger.error(f"Failed to send message to subscriber {subscriber[0]}")
-                logger.error(e)
-                update_subscription_status(subscriber[0], 'unsubscribed')
-        await context.bot.send_message(chat_id=update.message.chat_id, text=f'Розсилка завершена. Успішно відправлено {successful_sends} повідомлень.')
+        if update.message.photo:
+            photo_file = update.message.photo[-1].get_file()
+            photo_path = 'user_photo.jpg'
+            await photo_file.download(photo_path)
+            for subscriber in get_subscribers():
+                try:
+                    await context.bot.send_photo(chat_id=subscriber[0], photo=open(photo_path, 'rb'))
+                    successful_sends += 1
+                    update_subscription_status(subscriber[0], 'subscribed')
+                except Exception as e:
+                    logger.error(f"Failed to send photo to subscriber {subscriber[0]}")  # Added logging
+                    logger.error(e)  # Added logging
+                    update_subscription_status(subscriber[0], 'unsubscribed')
+        elif update.message.text:
+            text = update.message.text
+            for subscriber in get_subscribers():
+                try:
+                    await context.bot.send_message(chat_id=subscriber[0], text=text)
+                    successful_sends += 1
+                    update_subscription_status(subscriber[0], 'subscribed')
+                except Exception as e:
+                    logger.error(f"Failed to send message to subscriber {subscriber[0]}")  # Added logging
+                    logger.error(e)  # Added logging
+                    update_subscription_status(subscriber[0], 'unsubscribed')
+        await context.bot.send_message(chat_id=update.message.chat_id, text=f'Broadcast completed. Successfully sent {successful_sends} messages.')
 
 async def calculate_score(answers):
     total_questions = 10
@@ -291,7 +328,7 @@ def main() -> None:
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("start", request_contact))
-    application.add_handler(CommandHandler("broadcast", broadcast))
+    application.add_handler(CommandHandler("broadcast", handle_broadcast))
     application.add_handler(MessageHandler(filters.TEXT | filters.ATTACHMENT | filters.PHOTO, handle_broadcast))
 
     application.add_handler(CallbackQueryHandler(next_question))
