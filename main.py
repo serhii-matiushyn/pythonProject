@@ -232,7 +232,7 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data['broadcasting'] = True
     await update.message.reply_text("Broadcast started. Please send the next message, photo or document to broadcast.")
 
-def handle_broadcast(update, context):
+async def handle_broadcast(update, context):
     if 'broadcasting' in context.user_data and context.user_data['broadcasting']:
         message = update.message.text
         document = update.message.document
@@ -241,15 +241,19 @@ def handle_broadcast(update, context):
         successful_sends = 0
         failed_sends = 0
 
-        for subscriber in subscribers:
+        for row in c.execute('SELECT telegram_id FROM subscribers'):
+            c.execute('SELECT telegram_id FROM subscribers')
+            rows = c.fetchall()  # Отримати всі рядки з результатами запиту SELECT
+
+        for row in rows:
             try:
                 chat_id = subscriber['telegram_id']
                 if message:
-                    context.bot.send_message(chat_id=chat_id, text=message)
+                    await context.bot.send_message(chat_id=chat_id, text=message)
                 elif document:
-                    context.bot.send_document(chat_id=chat_id, document=document.file_id)
+                     await context.bot.send_document(chat_id=chat_id, document=document.file_id)
                 elif photo:
-                    context.bot.send_photo(chat_id=chat_id, photo=photo.file_id)
+                    await context.bot.send_photo(chat_id=chat_id, photo=photo.file_id)
 
                 logger.info(f"Sent message to subscriber {chat_id}")
                 successful_sends += 1
